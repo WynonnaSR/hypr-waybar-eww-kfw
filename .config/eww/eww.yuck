@@ -38,6 +38,7 @@
 (defwidget Userctl []
            (box :orientation "vertical" 
                 :space-evenly false
+                :class "services"
                 (box  :orientation "horizontal"
                       :space-evenly false
                       (box :class "app-icon")
@@ -85,7 +86,7 @@
                                         :thickness 5
                                         (box :class "ram-ico"
                                               (label :text ""))))
-                            (box :class "cpu-text" 
+                            (box :class "ram-text" 
                                   :space-evenly false
                                   :halign "center"
                                   (label :text "RAM:")
