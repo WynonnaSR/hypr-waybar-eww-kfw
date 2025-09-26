@@ -57,7 +57,7 @@ button {
   padding: 0px 26px 0px 26px;
   border: 1px solid #747474;
   border-radius: 50%;
-  background: url("/home/ecty/.config/eww/user.jpg");
+  background: url("user.jpg");
   background-size: cover;
   background-position: center;
 }
@@ -78,52 +78,16 @@ button {
   margin: 14px 10px 10px 10px;
 }
 
-
 .background-btn {
   margin: 0 10px;
   padding: 3px 0 3px 0;
   font-size: 11;
-}
-
-.bg-1 {
-  background: url("/home/ecty/Downloads/wall/2.jpg");
-}
-
-.bg-2 {
-  background: url("/home/ecty/Downloads/wall/20-2.jpg");
-}
-
-.bg-3 {
-  background: url("/home/ecty/Downloads/wall/44.png");
-}
-
-.bg-4 {
-  background: url("/home/ecty/Downloads/wall/43.png");
-}
-
-.bg-5 {
-  background: url("/home/ecty/Downloads/wall/5.jpg");
-}
-
-.bg-6 {
-  background: url("/home/ecty/Downloads/wall/42.jpg");
-}
-
-.bg-7 {
-  background: url("/home/ecty/Downloads/wall/51.png");
-}
-
-.bg-8 {
-  background: url("/home/ecty/Downloads/wall/50-5.jpg");
-}
-
-.bg-1, .bg-2, .bg-3, .bg-4, .bg-5, .bg-6, .bg-7, .bg-8 {
   background-size: cover;
   background-position: center;
   transition: box-shadow 0.35s;
-  &:hover {
-    box-shadow: 0px 0px 5px 2px #282848;
-  }
+}
+.background-btn:hover {
+  box-shadow: 0px 0px 5px 2px #282848;
 }
 
 .events-box {

@@ -187,50 +187,68 @@
       :onclick "~/.local/bin/xampp_off.fish"
         "Xampp OFF"))
 
+;; Resolved wallpaper paths for previews (poll rarely to keep it cheap)
+(defpoll bg1 :interval "600s" "~/.local/bin/wall_path 001")
+(defpoll bg2 :interval "600s" "~/.local/bin/wall_path 002")
+(defpoll bg3 :interval "600s" "~/.local/bin/wall_path 003")
+(defpoll bg4 :interval "600s" "~/.local/bin/wall_path 004")
+(defpoll bg5 :interval "600s" "~/.local/bin/wall_path 005")
+(defpoll bg6 :interval "600s" "~/.local/bin/wall_path 006")
+(defpoll bg7 :interval "600s" "~/.local/bin/wall_path 007")
+(defpoll bg8 :interval "600s" "~/.local/bin/wall_path 008")
+
 (defwidget bg-1 []
-    (button
-        :class "background-btn bg-1"
-      :onclick "~/.local/bin/wall 001"
-        ""))
+  (button
+    :class "background-btn"
+    :style "background-image: url('${bg1}');"
+    :onclick "~/.local/bin/wall 001"
+    ""))
 
 (defwidget bg-2 []
-    (button
-        :class "background-btn bg-2"
-      :onclick "~/.local/bin/wall 002"
-        ""))
+  (button
+    :class "background-btn"
+    :style "background-image: url('${bg2}');"
+    :onclick "~/.local/bin/wall 002"
+    ""))
 
 (defwidget bg-3 []
-    (button
-        :class "background-btn bg-3"
-      :onclick "~/.local/bin/wall 003"
-        ""))
+  (button
+    :class "background-btn"
+    :style "background-image: url('${bg3}');"
+    :onclick "~/.local/bin/wall 003"
+    ""))
 
 (defwidget bg-4 []
-    (button
-        :class "background-btn bg-4"
-      :onclick "~/.local/bin/wall 004"
-        ""))
+  (button
+    :class "background-btn"
+    :style "background-image: url('${bg4}');"
+    :onclick "~/.local/bin/wall 004"
+    ""))
 
 (defwidget bg-5 []
-    (button
-        :class "background-btn bg-5"
-      :onclick "~/.local/bin/wall 005"
-        ""))
+  (button
+    :class "background-btn"
+    :style "background-image: url('${bg5}');"
+    :onclick "~/.local/bin/wall 005"
+    ""))
 
 (defwidget bg-6 []
-    (button
-        :class "background-btn bg-6"
-      :onclick "~/.local/bin/wall 006"
-        ""))
+  (button
+    :class "background-btn"
+    :style "background-image: url('${bg6}');"
+    :onclick "~/.local/bin/wall 006"
+    ""))
 
 (defwidget bg-7 []
-    (button
-        :class "background-btn bg-7"
-      :onclick "~/.local/bin/wall 007"
-        ""))
+  (button
+    :class "background-btn"
+    :style "background-image: url('${bg7}');"
+    :onclick "~/.local/bin/wall 007"
+    ""))
 
 (defwidget bg-8 []
-    (button
-        :class "background-btn bg-8"
-      :onclick "~/.local/bin/wall 008"
-        ""))
+  (button
+    :class "background-btn"
+    :style "background-image: url('${bg8}');"
+    :onclick "~/.local/bin/wall 008"
+    ""))
