@@ -33,7 +33,7 @@ button {
 .close-btn {
   min-width: 0px;
   min-height: 0px;
-  padding: 0 5px;
+  padding: 0px 5px;
   margin: 8px 7px 50px 23px;
   background-color: transparent;
   border: 2px solid transparent;
@@ -48,7 +48,7 @@ button {
 
 .user-title {
   background-color: transparent;
-  font-size: 20;
+  font-size: 20px;
   margin: 23px 12px 32px 28px;
 }
 
@@ -63,13 +63,13 @@ button {
 }
 
 .dhcpcd-btn {
-  margin: 0 10px;
-  padding: 4px 0 4px 0;
+  margin: 0px 10px;
+  padding: 4px 0px 4px 0px;
 }
 
 .xampp-on-btn, .xampp-off-btn {
-  margin: 0 10px;
-  padding: 3px 0 3px 0;
+  margin: 0px 10px;
+  padding: 3px 0px 3px 0px;
 }
 
 .bg-title {
@@ -79,9 +79,9 @@ button {
 }
 
 .background-btn {
-  margin: 0 10px;
-  padding: 3px 0 3px 0;
-  font-size: 11;
+  margin: 0px 10px;
+  padding: 3px 0px 3px 0px;
+  font-size: 11px;
   background-size: cover;
   background-position: center;
   transition: box-shadow 0.35s;
@@ -124,7 +124,7 @@ button {
 }
 
 .disk-text, .ram-text, .cpu-text {
-  font-size: 11;
+  font-size: 11px;
 }
 
 .music-panel {
@@ -140,17 +140,17 @@ button {
 }
 
 .music-title {
-  font-size: 12;
+  font-size: 12px;
   margin: 0px 0px 0px 10px;
 }
 
 .music-artist {
-  font-size: 10;
+  font-size: 10px;
   margin: 3px 0px 0px 10px;
 }
 
 .music-time {
-  font-size: 10;
+  font-size: 10px;
   margin-top: 3px;
 }
 
@@ -177,4 +177,8 @@ button {
 .back-btn, .play-btn, .next-btn {
   padding: 0px 5px 0px 5px;
   margin: 0px 5px 0px 5px;
+}
+
+.back-btn.disabled, .next-btn.disabled {
+  opacity: 0.4;
 }

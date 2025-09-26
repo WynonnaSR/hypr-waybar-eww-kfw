@@ -1,5 +1,8 @@
-(deflisten music :initial "{}" "./scripts/music.fish")
-(deflisten pmusic :initial "{}" "./scripts/pmusic.fish")
+;; Поллер медиасостояния с начальным валидным JSON
+(defpoll pmusic
+  :initial "{\"name\":\"\",\"title\":\"\",\"artist\":\"\",\"status\":\"\",\"position\":0,\"positionStr\":\"0:00\",\"length\":0,\"lengthStr\":\"0:00\",\"thumbnail\":\"$HOME/.config/eww/scripts/cover.png\",\"canNext\":0,\"canPrev\":0}"
+  :interval "1s"
+  "$HOME/.config/eww/scripts/pmusic_poll.fish")
 
 ;; --- --- --- VENTANAS --- --- ---
 
@@ -38,7 +41,7 @@
                 (box  :orientation "horizontal"
                       :space-evenly false
                       (box :class "app-icon")
-                      (UserTitle :text "Maximus")
+                      (UserTitle :text "OrcaEX")
                       (close-button))
 
                 (box :orientation "horizontal"
@@ -91,23 +94,17 @@
                 (box :orientation "horizontal" :class "music-panel"
                       :space-evenly false
                       (box :class "album-ico"
-                            :style "background-image: url('${music.thumbnail}');")
-                      (box :class "music-box"
-                            :orientation "vertical"
-                            :space-evenly false
-                            (label :text "${music.title}" :halign "start" :limit-width 21 :class "music-title")
+                            :style "background-image: url('${pmusic.thumbnail}');")
+                      (box :class "music-box" :orientation "vertical" :space-evenly false
+                            (label :text "${pmusic.title}" :halign "start" :limit-width 21 :class "music-title")
                             (box :orientation "horizontal"
-                                  (label :text "${music.artist}" :halign "start" :limit-width 25 :class "music-artist")
-                                  (label :text "${pmusic.positionStr}/${music.lengthStr}" :class "music-time")
-                            )
-                            (scale :class "music-slider"
-                                  :min 0
-                                  :max {music.length}
-                                  :value {pmusic.position})
+                              (label :text "${pmusic.artist}" :halign "start" :limit-width 25 :class "music-artist")
+                              (label :text "${pmusic.positionStr}/${pmusic.lengthStr}" :class "music-time"))
+                            (scale :class "music-slider" :min 0 :max {pmusic.length} :value {pmusic.position})
                             (box :orientation "horizontal" :class "music-controls" :space-evenly false
-                                (back-button)
-                                (play-button)
-                                (next-button))))
+                              (back-button)
+                              (play-button)
+                              (next-button))))
 
                 (box :orientation "vertical"
                       :space-evenly false
@@ -157,98 +154,106 @@
         :class "close-btn"
         "×"))
 
+;; Кнопки управления: таргетим текущий плеер и не шумим в логи
 (defwidget back-button []
-  (button :onclick "playerctl previous" :class "back-btn" "󰒮")
-)
+  (button
+    :class {pmusic.canPrev == 1 ? "back-btn" : "back-btn disabled"}
+    :onclick {pmusic.canPrev == 1 ? "$HOME/.local/bin/mediactl.fish previous ${pmusic.name} >/dev/null 2>&1" : ""}
+    "󰒮"))
 
 (defwidget next-button []
-  (button :onclick "playerctl next" :class "next-btn" "󰒭")
-)
+  (button
+    :class {pmusic.canNext == 1 ? "next-btn" : "next-btn disabled"}
+    :onclick {pmusic.canNext == 1 ? "$HOME/.local/bin/mediactl.fish next ${pmusic.name} >/dev/null 2>&1" : ""}
+    "󰒭"))
 
 (defwidget play-button []
-  (button :onclick "playerctl play-pause" :class "play-btn" {music.status == "Playing" ? "󰓛" : "󰐊"})
-)
+  (button
+    :onclick "$HOME/.local/bin/mediactl.fish play-pause ${pmusic.name} >/dev/null 2>&1"
+    :class "play-btn"
+    {pmusic.status == "Playing" ? "󰓛" : "󰐊"}))
 
+;; Кнопки сервисов через pkexec в фоне, важны двойные кавычки для fish -c
 (defwidget dhcpcd-button []
-    (button
-        :class "dhcpcd-btn"
-      :onclick "~/.local/bin/dhcpcd.fish"
-        "dhcpcd"))
+  (button
+    :class "dhcpcd-btn"
+    :onclick "fish -c \"nohup pkexec /usr/bin/systemctl restart dhcpcd.service >/dev/null 2>&1 &; disown\""
+    "dhcpcd"))
 
 (defwidget xampp-ON-button []
-    (button
-        :class "xampp-on-btn"
-      :onclick "~/.local/bin/xampp.fish"
-        "Xampp ON"))
+  (button
+    :class "xampp-on-btn"
+    :onclick "fish -c \"nohup pkexec /opt/lampp/lampp start >/dev/null 2>&1 &; disown\""
+    "Xampp ON"))
 
 (defwidget xampp-OFF-button []
-    (button
-        :class "xampp-off-btn"
-      :onclick "~/.local/bin/xampp_off.fish"
-        "Xampp OFF"))
+  (button
+    :class "xampp-off-btn"
+    :onclick "fish -c \"nohup pkexec /opt/lampp/lampp stop >/dev/null 2>&1 &; disown\""
+    "Xampp OFF"))
 
 ;; Resolved wallpaper paths for previews (poll rarely to keep it cheap)
-(defpoll bg1 :interval "600s" "~/.local/bin/wall_path 001")
-(defpoll bg2 :interval "600s" "~/.local/bin/wall_path 002")
-(defpoll bg3 :interval "600s" "~/.local/bin/wall_path 003")
-(defpoll bg4 :interval "600s" "~/.local/bin/wall_path 004")
-(defpoll bg5 :interval "600s" "~/.local/bin/wall_path 005")
-(defpoll bg6 :interval "600s" "~/.local/bin/wall_path 006")
-(defpoll bg7 :interval "600s" "~/.local/bin/wall_path 007")
-(defpoll bg8 :interval "600s" "~/.local/bin/wall_path 008")
+(defpoll bg1 :interval "600s" "$HOME/.local/bin/wall_path 001")
+(defpoll bg2 :interval "600s" "$HOME/.local/bin/wall_path 002")
+(defpoll bg3 :interval "600s" "$HOME/.local/bin/wall_path 003")
+(defpoll bg4 :interval "600s" "$HOME/.local/bin/wall_path 004")
+(defpoll bg5 :interval "600s" "$HOME/.local/bin/wall_path 005")
+(defpoll bg6 :interval "600s" "$HOME/.local/bin/wall_path 006")
+(defpoll bg7 :interval "600s" "$HOME/.local/bin/wall_path 007")
+(defpoll bg8 :interval "600s" "$HOME/.local/bin/wall_path 008")
 
 (defwidget bg-1 []
   (button
     :class "background-btn"
     :style "background-image: url('${bg1}');"
-    :onclick "~/.local/bin/wall 001"
+    :onclick "fish -c \"nohup $HOME/.local/bin/wall 001 >/dev/null 2>&1 &; disown\""
     ""))
 
 (defwidget bg-2 []
   (button
     :class "background-btn"
     :style "background-image: url('${bg2}');"
-    :onclick "~/.local/bin/wall 002"
+    :onclick "fish -c \"nohup $HOME/.local/bin/wall 002 >/dev/null 2>&1 &; disown\""
     ""))
 
 (defwidget bg-3 []
   (button
     :class "background-btn"
     :style "background-image: url('${bg3}');"
-    :onclick "~/.local/bin/wall 003"
+    :onclick "fish -c \"nohup $HOME/.local/bin/wall 003 >/dev/null 2>&1 &; disown\""
     ""))
 
 (defwidget bg-4 []
   (button
     :class "background-btn"
     :style "background-image: url('${bg4}');"
-    :onclick "~/.local/bin/wall 004"
+    :onclick "fish -c \"nohup $HOME/.local/bin/wall 004 >/dev/null 2>&1 &; disown\""
     ""))
 
 (defwidget bg-5 []
   (button
     :class "background-btn"
     :style "background-image: url('${bg5}');"
-    :onclick "~/.local/bin/wall 005"
+    :onclick "fish -c \"nohup $HOME/.local/bin/wall 005 >/dev/null 2>&1 &; disown\""
     ""))
 
 (defwidget bg-6 []
   (button
     :class "background-btn"
     :style "background-image: url('${bg6}');"
-    :onclick "~/.local/bin/wall 006"
+    :onclick "fish -c \"nohup $HOME/.local/bin/wall 006 >/dev/null 2>&1 &; disown\""
     ""))
 
 (defwidget bg-7 []
   (button
     :class "background-btn"
     :style "background-image: url('${bg7}');"
-    :onclick "~/.local/bin/wall 007"
+    :onclick "fish -c \"nohup $HOME/.local/bin/wall 007 >/dev/null 2>&1 &; disown\""
     ""))
 
 (defwidget bg-8 []
   (button
     :class "background-btn"
     :style "background-image: url('${bg8}');"
-    :onclick "~/.local/bin/wall 008"
+    :onclick "fish -c \"nohup $HOME/.local/bin/wall 008 >/dev/null 2>&1 &; disown\""
     ""))
