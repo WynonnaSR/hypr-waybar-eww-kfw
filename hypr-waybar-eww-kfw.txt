@@ -1,0 +1,1456 @@
+hypr-waybar-eww-kfw/.config/eww/scripts/pmusic_poll.fish
+
+  #!/usr/bin/env fish
+  # Emit JSON once per call: full state for Eww UI
+  # {name,title,artist,status,position,positionStr,length,lengthStr,canNext,canPrev,thumbnail}
+
+  set -l base_dir "$HOME/.config/eww"
+  set -l image_file "$base_dir/image.jpg"
+  mkdir -p "$base_dir"
+
+  function fmt_time --argument-names s
+    set -l secs (math -s0 "floor($s)")
+    set -l mins (math -s0 "$secs / 60")
+    set -l rems (math -s0 "$secs % 60")
+    printf "%d:%02d" $mins $rems
+  end
+
+  set -l name (~/.local/bin/select_player.fish)
+
+  set -l title ""; set -l artist ""; set -l status ""; set -l pos 0; set -l len 0; set -l canN 0; set -l canP 0
+
+  if test -n "$name"
+    # metadata via playerctl
+    set -l t (playerctl -p $name metadata title 2>/dev/null)
+    set -l a (playerctl -p $name metadata artist 2>/dev/null)
+    set -l st (playerctl -p $name status 2>/dev/null)
+    test -n "$t"; and set title "$t"
+    test -n "$a"; and set artist "$a"
+    test -n "$st"; and set status "$st"
+
+    # duration (us -> s)
+    set -l len_us (playerctl -p $name metadata mpris:length 2>/dev/null)
+    if test -n "$len_us"; and string match -rq '^[0-9]+$' -- "$len_us"
+      set len (math -s2 "$len_us / 1000000")
+    end
+
+    # position (s)
+    set -l p (playerctl -p $name position 2>/dev/null)
+    if string match -rq '^[0-9]+(\\.[0-9]+)?$' -- "$p"
+      set pos $p
+    end
+
+    # capabilities via busctl (user session)
+    set -l vN (busctl --user get-property org.mpris.MediaPlayer2.$name /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player CanGoNext 2>/dev/null)
+    set -l vP (busctl --user get-property org.mpris.MediaPlayer2.$name /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player CanGoPrevious 2>/dev/null)
+    string match -rq 'b true' -- "$vN"; and set canN 1
+    string match -rq 'b true' -- "$vP"; and set canP 1
+
+    # cover-art (file:// or http(s))
+    set -l art (playerctl -p $name metadata mpris:artUrl 2>/dev/null)
+    if string match -rq '^file://.*' -- "$art"
+      set -l local_path (string replace -r '^file://' '' -- "$art")
+      if test -f "$local_path"
+        cp "$local_path" "$image_file"
+      else
+        cp "$base_dir/scripts/cover.png" "$image_file"
+      end
+    else if string match -rq '^https?://.*' -- "$art"
+      curl -Ls --max-time 5 "$art" -o "$image_file" 2>/dev/null
+      if test $status -ne 0
+        cp "$base_dir/scripts/cover.png" "$image_file"
+      end
+    else
+      cp "$base_dir/scripts/cover.png" "$image_file"
+    end
+  else
+    # no player -> default cover
+    cp "$base_dir/scripts/cover.png" "$image_file"
+  end
+
+  set -l posStr (fmt_time $pos)
+  set -l lenStr (fmt_time $len)
+  jq -n -c \
+    --arg name "$name" \
+    --arg title "$title" \
+    --arg artist "$artist" \
+    --arg status "$status" \
+    --argjson position "$pos" \
+    --arg positionStr "$posStr" \
+    --argjson length "$len" \
+    --arg lengthStr "$lenStr" \
+    --arg thumbnail "$image_file" \
+    --argjson canNext "$canN" \
+    --argjson canPrev "$canP" \
+    '{name:$name,title:$title,artist:$artist,status:$status,position:$position,positionStr:$positionStr,length:$length,lengthStr:$lengthStr,thumbnail:$thumbnail,canNext:$canNext,canPrev:$canPrev}'
+
+
+hypr-waybar-eww-kfw/.config/eww/eww.scss
+
+  * {
+    font-family: "Hack Nerd Font";
+    all: unset;
+  }
+
+  .services {
+    background-color: #121218;
+    color: #eceff4;
+    font-family: "Hack Nerd Font";
+    padding-bottom: 10px;
+  }
+
+  button {
+    background-color: #1b1b1f;
+    border-radius: 3px;
+    box-shadow: 2px 10px 5px #0f0f0f;
+    transition: color 0.4s;
+    transition: background-color 0.4s;
+  }
+
+  button:hover {
+    color: #f4f4f4;
+    background-color: #222228;
+  }
+
+  .service-title {
+    font-size: 15px;
+    background-color: transparent;
+    margin: 8px 10px 10px 10px;
+  }
+
+  .close-btn {
+    min-width: 0px;
+    min-height: 0px;
+    padding: 0px 5px;
+    margin: 8px 7px 50px 23px;
+    background-color: transparent;
+    border: 2px solid transparent;
+    transition: color 0.4s;
+    transition: background-color 0.4s;
+    color: #b4b4b4;
+  }
+
+  .close-btn:hover {
+    color: #ffffff;
+    background-color: #222228;
+  }
+
+  .user-title {
+    background-color: transparent;
+    font-size: 20px;
+    margin: 23px 12px 32px 28px;
+  }
+
+  .app-icon {
+    margin: 12px 0px 14px 12px;
+    border: 1px solid #747474;
+    border-radius: 50%;
+    background: url("user.jpg");
+    background-size: cover;
+    background-position: center;
+    min-height: 52px;
+    min-width: 52px;
+  }
+
+  .dhcpcd-btn {
+    margin: 0px 10px;
+    padding: 4px 0px 4px 0px;
+  }
+
+  .xampp-on-btn,
+  .xampp-off-btn {
+    margin: 0px 10px;
+    padding: 3px 0px 3px 0px;
+  }
+
+  .bg-title {
+    font-size: 14px;
+    background-color: transparent;
+    margin: 14px 10px 10px 10px;
+  }
+
+  .background-btn {
+    margin: 0px 10px;
+    padding: 3px 0px 3px 0px;
+    font-size: 11px;
+    background-size: cover;
+    background-position: center;
+    transition: box-shadow 0.35s;
+  }
+
+  .background-btn:hover {
+    box-shadow: 0px 0px 5px 2px #282848;
+  }
+
+  .events-box {
+    margin: 0px 10px 10px 10px;
+  }
+
+  .cpu {
+    color: #981818;
+    background-color: #080808;
+  }
+
+  .disk {
+    color: #281868;
+    background-color: #080808;
+  }
+
+  .ram {
+    color: green;
+    background-color: #080808;
+  }
+
+  .ram-ico,
+  .cpu-ico,
+  .disk-ico {
+    color: #eceff4;
+    padding: 5px;
+    margin: 10px 20px 10px 15px;
+  }
+
+  .ram-ico {
+    margin: 10px 18px 10px 15px;
+  }
+
+  .disk-ico {
+    margin: 10px 17px 10px 15px;
+  }
+
+  .disk-text,
+  .ram-text,
+  .cpu-text {
+    font-size: 11px;
+  }
+
+  .music-panel {
+    margin: 0px 0px 15px 0px;
+  }
+
+  .album-ico {
+    padding: 32px 32px 32px 38px;
+    margin: 0px 0px 0px 10px;
+    background-size: cover;
+    background-position: center;
+    border-radius: 5px;
+  }
+
+  .music-title {
+    font-size: 12px;
+    margin: 0px 0px 0px 10px;
+  }
+
+  .music-artist {
+    font-size: 10px;
+    margin: 3px 0px 0px 10px;
+  }
+
+  .music-time {
+    font-size: 10px;
+    margin-top: 3px;
+  }
+
+  .music-slider {
+    margin: 5px 10px 0px 10px;
+  }
+
+  .music-slider trough {
+    min-height: 5px;
+    min-width: 140px;
+    background-color: #353535;
+  }
+
+  .music-slider trough highlight {
+    background-color: #999999;
+    border-top-right-radius: 5px;
+    border-bottom-right-radius: 5px;
+  }
+
+  .music-controls {
+    margin: 10px 0px 0px 30px;
+  }
+
+  .back-btn,
+  .play-btn,
+  .next-btn {
+    padding: 0px 5px 0px 5px;
+    margin: 0px 5px 0px 5px;
+  }
+
+  .back-btn.disabled,
+  .next-btn.disabled {
+    opacity: 0.4;
+  }
+
+
+hypr-waybar-eww-kfw/.config/eww/eww.yuck
+
+  ;; Поллер медиасостояния с начальным валидным JSON
+  (defpoll pmusic
+    :initial "{\"name\":\"\",\"title\":\"\",\"artist\":\"\",\"status\":\"\",\"position\":0,\"positionStr\":\"0:00\",\"length\":0,\"lengthStr\":\"0:00\",\"thumbnail\":\"$HOME/.config/eww/scripts/cover.png\",\"canNext\":0,\"canPrev\":0}"
+    :interval "1s"
+    "$HOME/.config/eww/scripts/pmusic_poll.fish")
+
+  ;; --- --- --- VENTANAS --- --- ---
+
+  (defwindow services
+            :monitor 0
+            :focusable "ondemand"
+            :geometry (geometry :x "10px"
+                                :y "10px"
+                                :width "200px"
+                                :height "450px"
+                                :anchor "top right")
+            :stacking "fg"
+            :reserve (struts :distance "0px" :side "top")
+            :wm-ignore "false"
+            :focusable "false"
+            (Userctl)
+  )
+
+  ;; --- --- --- SERVICIOS WIDGETS --- --- ---
+
+  (defwidget Userctl []
+            (box :orientation "vertical" 
+                  :space-evenly false
+                  :class "services"
+                  (box  :orientation "horizontal"
+                        :space-evenly false
+                        (box :class "app-icon")
+                        (UserTitle :text "orcaex")
+                        (close-button))
+
+                  (box :orientation "horizontal"
+                        :class "events-box"
+                        :space-evenly true
+                        (box :class "cpu-box"
+                              :orientation "vertical"
+                              (eventbox :class "cpu-hover"
+
+                                    (circular-progress :class "cpu"
+                                          :value {round(EWW_CPU.avg,10)}
+                                          :thickness 5
+                                          (box :class "cpu-ico"
+                                                (label :text ""))))
+                              
+                              (box :class "cpu-text" 
+                                    :space-evenly false
+                                    :halign "center"
+                                    (label :text "CPU:")
+                                    (label :text "${round(EWW_CPU.avg,0)}%")))
+
+                        (box :class "disk-box"
+                              :orientation "vertical"
+                              (eventbox
+                                    (circular-progress :class "disk"
+                                          :value {round(EWW_DISK["/"].used_perc,10)}
+                                          :thickness 5
+                                          (box :class "disk-ico"
+                                                (label :text ""))))
+                              (box :class "disk-text" 
+                                    :space-evenly false
+                                    :halign "center"
+                                    (label :text "ROM:")
+                                    (label :text "${round(EWW_DISK["/"].used_perc,0)}%")))
+
+                        (box :class "ram-box"
+                              :orientation "vertical"
+                              (eventbox
+                                    (circular-progress :class "ram"
+                                          :value {round(EWW_RAM.used_mem_perc,10)}
+                                          :thickness 5
+                                          (box :class "ram-ico"
+                                                (label :text ""))))
+                              (box :class "ram-text" 
+                                    :space-evenly false
+                                    :halign "center"
+                                    (label :text "RAM:")
+                                    (label :text "${round(EWW_RAM.used_mem_perc,0)}%"))))
+
+                  (box :orientation "horizontal" :class "music-panel"
+                        :space-evenly false
+                        (box :class "album-ico"
+                              :style "background-image: url('${pmusic.thumbnail}');")
+                        (box :class "music-box" :orientation "vertical" :space-evenly false
+                              (label :text "${pmusic.title}" :halign "start" :limit-width 21 :class "music-title")
+                              (box :orientation "horizontal"
+                                (label :text "${pmusic.artist}" :halign "start" :limit-width 25 :class "music-artist")
+                                (label :text "${pmusic.positionStr}/${pmusic.lengthStr}" :class "music-time"))
+                              (scale :class "music-slider" :min 0 :max {pmusic.length} :value {pmusic.position})
+                              (box :orientation "horizontal" :class "music-controls" :space-evenly false
+                                (back-button)
+                                (play-button)
+                                (next-button))))
+
+                  (box :orientation "vertical"
+                        :space-evenly false
+                        (ServiceTitle :text "Services")
+                        (box :orientation "vertical"
+                              :spacing 8
+                              (dhcpcd-button)
+                              (box :orientation "horizontal"
+                                      (xampp-ON-button)
+                                      (xampp-OFF-button))))
+
+                  (box :orientation "vertical"
+                        :space-evenly false
+                        (BgTitle :text "Backgrounds")
+                        (box :orientation "vertical"
+                              :spacing 10
+                              (box :orientation "horizontal" :spacing 6
+                                    (bg-1)
+                                    (bg-2)
+                                    (bg-3)
+                                    (bg-4))
+                              (box :orientation "horizontal" :spacing 6
+                                    (bg-5)
+                                    (bg-6)
+                                    (bg-7)
+                                    (bg-8))))))
+
+  (defwidget space [text]
+    (label :text :text
+          :class "space"))
+
+  (defwidget ServiceTitle [text]
+    (label :text text
+          :class "service-title"))
+
+  (defwidget BgTitle [text]
+    (label :text text
+          :class "bg-title"))
+
+  (defwidget UserTitle [text]
+    (label :text text
+          :class "user-title"))
+
+  (defwidget close-button []
+      (button
+          :onclick "eww close services"
+          :class "close-btn"
+          "×"))
+
+  ;; Кнопки управления: таргетим текущий плеер и не шумим в логи
+  (defwidget back-button []
+    (button
+      :class {pmusic.canPrev == 1 ? "back-btn" : "back-btn disabled"}
+      :onclick {pmusic.canPrev == 1 ? "$HOME/.local/bin/mediactl.fish previous ${pmusic.name} >/dev/null 2>&1" : ""}
+      "󰒮"))
+
+  (defwidget next-button []
+    (button
+      :class {pmusic.canNext == 1 ? "next-btn" : "next-btn disabled"}
+      :onclick {pmusic.canNext == 1 ? "$HOME/.local/bin/mediactl.fish next ${pmusic.name} >/dev/null 2>&1" : ""}
+      "󰒭"))
+
+  (defwidget play-button []
+    (button
+      :onclick "$HOME/.local/bin/mediactl.fish play-pause ${pmusic.name} >/dev/null 2>&1"
+      :class "play-btn"
+      {pmusic.status == "Playing" ? "󰓛" : "󰐊"}))
+
+  ;; Кнопки сервисов через pkexec в фоне, важны двойные кавычки для fish -c
+  (defwidget dhcpcd-button []
+    (button
+      :class "dhcpcd-btn"
+      :onclick "fish -c \"nohup pkexec /usr/bin/systemctl restart dhcpcd.service >/dev/null 2>&1 &; disown\""
+      "dhcpcd"))
+
+  (defwidget xampp-ON-button []
+    (button
+      :class "xampp-on-btn"
+      :onclick "fish -c \"nohup pkexec /opt/lampp/lampp start >/dev/null 2>&1 &; disown\""
+      "Xampp ON"))
+
+  (defwidget xampp-OFF-button []
+    (button
+      :class "xampp-off-btn"
+      :onclick "fish -c \"nohup pkexec /opt/lampp/lampp stop >/dev/null 2>&1 &; disown\""
+      "Xampp OFF"))
+
+  ;; Resolved wallpaper paths for previews (poll rarely to keep it cheap)
+  (defpoll bg1 :interval "600s" "$HOME/.local/bin/wall_path 001")
+  (defpoll bg2 :interval "600s" "$HOME/.local/bin/wall_path 002")
+  (defpoll bg3 :interval "600s" "$HOME/.local/bin/wall_path 003")
+  (defpoll bg4 :interval "600s" "$HOME/.local/bin/wall_path 004")
+  (defpoll bg5 :interval "600s" "$HOME/.local/bin/wall_path 005")
+  (defpoll bg6 :interval "600s" "$HOME/.local/bin/wall_path 006")
+  (defpoll bg7 :interval "600s" "$HOME/.local/bin/wall_path 007")
+  (defpoll bg8 :interval "600s" "$HOME/.local/bin/wall_path 008")
+
+  (defwidget bg-1 []
+    (button
+      :class "background-btn"
+      :style "background-image: url('${bg1}');"
+      :onclick "fish -c \"nohup $HOME/.local/bin/wall 001 >/dev/null 2>&1 &; disown\""
+      ""))
+
+  (defwidget bg-2 []
+    (button
+      :class "background-btn"
+      :style "background-image: url('${bg2}');"
+      :onclick "fish -c \"nohup $HOME/.local/bin/wall 002 >/dev/null 2>&1 &; disown\""
+      ""))
+
+  (defwidget bg-3 []
+    (button
+      :class "background-btn"
+      :style "background-image: url('${bg3}');"
+      :onclick "fish -c \"nohup $HOME/.local/bin/wall 003 >/dev/null 2>&1 &; disown\""
+      ""))
+
+  (defwidget bg-4 []
+    (button
+      :class "background-btn"
+      :style "background-image: url('${bg4}');"
+      :onclick "fish -c \"nohup $HOME/.local/bin/wall 004 >/dev/null 2>&1 &; disown\""
+      ""))
+
+  (defwidget bg-5 []
+    (button
+      :class "background-btn"
+      :style "background-image: url('${bg5}');"
+      :onclick "fish -c \"nohup $HOME/.local/bin/wall 005 >/dev/null 2>&1 &; disown\""
+      ""))
+
+  (defwidget bg-6 []
+    (button
+      :class "background-btn"
+      :style "background-image: url('${bg6}');"
+      :onclick "fish -c \"nohup $HOME/.local/bin/wall 006 >/dev/null 2>&1 &; disown\""
+      ""))
+
+  (defwidget bg-7 []
+    (button
+      :class "background-btn"
+      :style "background-image: url('${bg7}');"
+      :onclick "fish -c \"nohup $HOME/.local/bin/wall 007 >/dev/null 2>&1 &; disown\""
+      ""))
+
+  (defwidget bg-8 []
+    (button
+      :class "background-btn"
+      :style "background-image: url('${bg8}');"
+      :onclick "fish -c \"nohup $HOME/.local/bin/wall 008 >/dev/null 2>&1 &; disown\""
+      ""))
+
+
+hypr-waybar-eww-kfw/.config/hypr/hyprland.conf
+
+  ################
+  ### MONITORS ###
+  ################
+
+  # See https://wiki.hyprland.org/Configuring/Monitors/
+  monitor=,preferred,auto,auto
+  ###################
+  ### MY PROGRAMS ###
+  ###################
+
+  # See https://wiki.hyprland.org/Configuring/Keywords/
+
+  # Set programs that you use
+  $terminal = kitty
+  $fileManager = thunar
+  $menu = wofi --show drun
+  $menuS = eww open services
+
+  ##################
+  ### AUTOSTART ###
+  #################
+
+  # Autostart necessary processes (like notifications daemons, status bars, etc.)
+  # Or execute your favorite apps at launch like this:
+
+  # exec-once = $terminal
+  # exec-once = nm-applet &
+  # exec-once = waybar & hyprpaper & firefox
+
+  exec-once = waybar
+  exec-once = eww -c $HOME/.config/eww daemon
+  exec-once = swww init
+  exec-once = /usr/bin/lxqt-policykit-agent &
+  exec-once = /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 &
+
+  #############################
+  ### ENVIRONMENT VARIABLES ###
+  #############################
+
+  # See https://wiki.hyprland.org/Configuring/Environment-variables/
+
+  env = XCURSOR_SIZE,24
+  env = HYPRCURSOR_SIZE,24
+  env = XDG_CURRENT_DESKTOP,Hyprland
+  env = XDG_SESSION_TYPE,wayland
+
+  ###################
+  ### PERMISSIONS ###
+  ###################
+
+  # See https://wiki.hyprland.org/Configuring/Permissions/
+  # Please note permission changes here require a Hyprland restart and are not applied on-the-fly
+  # for security reasons
+
+  # ecosystem {
+  #   enforce_permissions = 1
+  # }
+
+  # permission = /usr/(bin|local/bin)/grim, screencopy, allow
+  # permission = /usr/(lib|libexec|lib64)/xdg-desktop-portal-hyprland, screencopy, allow
+  # permission = /usr/(bin|local/bin)/hyprpm, plugin, allow
+
+
+  #####################
+  ### LOOK AND FEEL ###
+  #####################
+
+  # Refer to https://wiki.hyprland.org/Configuring/Variables/
+
+  # https://wiki.hyprland.org/Configuring/Variables/#general
+  general {
+      gaps_in = 5
+      gaps_out = 10
+
+      border_size = 2
+
+      # https://wiki.hyprland.org/Configuring/Variables/#variable-types for info about colors
+      # col.active_border = rgba(e14bc9ff) rgba(2b2974ee) 45deg
+      # col.active_border = rgba(faa9a9ee) rgba(922222ae) 45deg
+      # col.active_border = rgba(af96e0fe) rgba(7161effe) 45deg
+      # col.active_border = rgba(ffffcfff) rgba(212121fe) 45deg
+      col.active_border = rgba(f4f4f4ff) rgba(212121fe) 45deg
+      col.inactive_border = rgba(222222aa)
+
+      # Set to true enable resizing windows by clicking and dragging on borders and gaps
+      resize_on_border = false
+
+      # Please see https://wiki.hyprland.org/Configuring/Tearing/ before you turn this on
+      allow_tearing = false
+
+      layout = dwindle
+  }
+
+  # https://wiki.hyprland.org/Configuring/Variables/#decoration
+  decoration {
+      rounding = 8
+      rounding_power = 2
+
+      # Change transparency of focused and unfocused windows
+      active_opacity = 1.0
+      inactive_opacity = 0.9
+
+      shadow {
+          enabled = true
+          range = 4
+          render_power = 3
+          color = rgba(1a1a1aee)
+      }
+
+      # https://wiki.hyprland.org/Configuring/Variables/#blur
+      blur {
+          enabled = true
+          size = 3
+          passes = 1
+          vibrancy = 0.1696
+      }
+  }
+
+  # https://wiki.hyprland.org/Configuring/Variables/#animations
+  animations {
+      enabled = yes, please :)
+
+      # Default animations, see https://wiki.hyprland.org/Configuring/Animations/ for more
+
+      bezier = easeOutQuint,0.23,1,0.32,1
+      bezier = easeInOutCubic,0.65,0.05,0.36,1
+      bezier = linear,0,0,1,1
+      bezier = almostLinear,0.5,0.5,0.75,1.0
+      bezier = quick,0.15,0,0.1,1    
+
+      animation = global, 1, 10, default
+      animation = border, 1, 5.39, easeOutQuint
+      animation = windows, 1, 4.79, easeOutQuint
+      animation = windowsIn, 1, 4.1, easeOutQuint, popin 87%
+      animation = windowsOut, 1, 1.49, linear, popin 87%
+      animation = fadeIn, 1, 1.73, almostLinear
+      animation = fadeOut, 1, 1.46, almostLinear
+      animation = fade, 1, 3.03, quick
+      animation = layers, 1, 3.81, easeOutQuint
+      animation = layersIn, 1, 4, easeOutQuint, fade
+      animation = layersOut, 1, 1.5, linear, fade
+      animation = fadeLayersIn, 1, 1.79, almostLinear
+      animation = fadeLayersOut, 1, 1.79, almostLinear
+      animation = workspaces, 1, 1.94, almostLinear, fade
+      animation = workspacesIn, 1, 2, easeOutQuint
+      animation = workspacesOut, 1, 2, easeOutQuint
+  }
+
+  # Ref https://wiki.hyprland.org/Configuring/Workspace-Rules/
+  # "Smart gaps" / "No gaps when only"
+  # uncomment all if you wish to use that.
+  # workspace = w[tv1], gapsout:0, gapsin:0
+  # workspace = f[1], gapsout:0, gapsin:0
+  # windowrule = bordersize 0, floating:0, onworkspace:w[tv1]
+  # windowrule = rounding 0, floating:0, onworkspace:w[tv1]
+  # windowrule = bordersize 0, floating:0, onworkspace:f[1]
+  # windowrule = rounding 0, floating:0, onworkspace:f[1]
+
+  # See https://wiki.hyprland.org/Configuring/Dwindle-Layout/ for more
+  dwindle {
+      pseudotile = true # Master switch for pseudotiling. Enabling is bound to mainMod + P in the keybinds section below
+      preserve_split = true # You probably want this
+  }
+
+  # See https://wiki.hyprland.org/Configuring/Master-Layout/ for more
+  master {
+      new_status = master
+  }
+
+  # https://wiki.hyprland.org/Configuring/Variables/#misc
+  misc {
+      force_default_wallpaper = -1 # Set to 0 or 1 to disable the anime mascot wallpapers
+      disable_hyprland_logo = false # If true disables the random hyprland logo / anime girl background. :(
+  }
+
+
+  #############
+  ### INPUT ###
+  #############
+
+  # https://wiki.hyprland.org/Configuring/Variables/#input
+  input {
+      kb_layout = es
+      kb_variant =
+      kb_model =
+      kb_options =
+      kb_rules =
+
+      follow_mouse = 1
+
+      sensitivity = 0 # -1.0 - 1.0, 0 means no modification.
+
+      touchpad {
+          natural_scroll = false
+      }
+  }
+
+  # https://wiki.hyprland.org/Configuring/Variables/#gestures
+  gestures {
+      workspace_swipe = false
+  }
+
+  # Example per-device config
+  # See https://wiki.hyprland.org/Configuring/Keywords/#per-device-input-configs for more
+  device {
+      name = epic-mouse-v1
+      sensitivity = -0.5
+  }
+
+
+  ###################
+  ### KEYBINDINGS ###
+  ###################
+
+  # See https://wiki.hyprland.org/Configuring/Keywords/
+  $mainMod = SUPER # Sets "Windows" key as main modifier
+
+  # Example binds, see https://wiki.hyprland.org/Configuring/Binds/ for more
+  bind = $mainMod, Q, exec, $terminal -e fish -c 'fastfetch; fish'
+  bind = $mainMod, C, killactive,
+  bind = $mainMod, M, exit,
+  bind = $mainMod, E, exec, $fileManager
+  bind = $mainMod, V, togglefloating,
+  bind = $mainMod, R, exec, $menu
+  bind = $mainMod, T, exec, $menuS
+  bind = $mainMod, P, pseudo, # dwindle
+  bind = $mainMod, Y, togglesplit, # dwindle
+
+  # WALLPAPERS
+
+  bind = $mainMod CTRL, 1, exec, ~/.local/bin/wall 001
+  bind = $mainMod CTRL, 2, exec, ~/.local/bin/wall 002
+  bind = $mainMod CTRL, 3, exec, ~/.local/bin/wall 003
+  bind = $mainMod CTRL, 4, exec, ~/.local/bin/wall 004
+  bind = $mainMod CTRL, 5, exec, ~/.local/bin/wall 005
+  bind = $mainMod CTRL, 6, exec, ~/.local/bin/wall 006
+  bind = $mainMod CTRL, 7, exec, ~/.local/bin/wall 007
+  bind = $mainMod CTRL, 8, exec, ~/.local/bin/wall 008
+
+  bind = $mainMod, S, exec, grim -g "$(slurp)" - | wl-copy  # Copy area
+  bind = $mainMod SHIFT, S, exec, grim -g "$(slurp)" - | swappy -f -  # Edit area
+  bind = $mainMod CTRL, S, exec, grim - | wl-copy  # Copy full screen
+
+  # Move focus with mainMod + arrow keys
+  bind = $mainMod, J, movefocus, l
+  bind = $mainMod, L, movefocus, r
+  bind = $mainMod, I, movefocus, u
+  bind = $mainMod, K, movefocus, d
+
+  # Switch workspaces with mainMod + [0-9]
+  bind = $mainMod, 1, workspace, 1
+  bind = $mainMod, 2, workspace, 2
+  bind = $mainMod, 3, workspace, 3
+  bind = $mainMod, 4, workspace, 4
+  bind = $mainMod, 5, workspace, 5
+  bind = $mainMod, 6, workspace, 6
+  bind = $mainMod, 7, workspace, 7
+  bind = $mainMod, 8, workspace, 8
+  bind = $mainMod, 9, workspace, 9
+  bind = $mainMod, 0, workspace, 10
+
+  # Move active window to a workspace with mainMod + SHIFT + [0-9]
+  bind = $mainMod SHIFT, 1, movetoworkspace, 1
+  bind = $mainMod SHIFT, 2, movetoworkspace, 2
+  bind = $mainMod SHIFT, 3, movetoworkspace, 3
+  bind = $mainMod SHIFT, 4, movetoworkspace, 4
+  bind = $mainMod SHIFT, 5, movetoworkspace, 5
+  bind = $mainMod SHIFT, 6, movetoworkspace, 6
+  bind = $mainMod SHIFT, 7, movetoworkspace, 7
+  bind = $mainMod SHIFT, 8, movetoworkspace, 8
+  bind = $mainMod SHIFT, 9, movetoworkspace, 9
+  bind = $mainMod SHIFT, 0, movetoworkspace, 10
+
+  # Example special workspace (scratchpad)
+  # bind = $mainMod, S, togglespecialworkspace, magic
+  # bind = $mainMod SHIFT, S, movetoworkspace, special:magic
+
+  # Scroll through existing workspaces with mainMod + scroll
+  bind = $mainMod, mouse_down, workspace, e+1
+  bind = $mainMod, mouse_up, workspace, e-1
+
+  # Move/resize windows with mainMod + LMB/RMB and dragging
+  bindm = $mainMod, mouse:272, movewindow
+  bindm = $mainMod, mouse:273, resizewindow
+
+  # Laptop multimedia keys for volume and LCD brightness
+  bindel = ,XF86AudioRaiseVolume, exec, wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%+
+  bindel = ,XF86AudioLowerVolume, exec, wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-
+  bindel = ,XF86AudioMute, exec, wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle
+  bindel = ,XF86AudioMicMute, exec, wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle
+  bindel = ,XF86MonBrightnessUp, exec, brightnessctl -e4 -n2 set 5%+
+  bindel = ,XF86MonBrightnessDown, exec, brightnessctl -e4 -n2 set 5%-
+
+  # Requires playerctl
+  bindl = , XF86AudioNext, exec, playerctl next
+  bindl = , XF86AudioPause, exec, playerctl play-pause
+  bindl = , XF86AudioPlay, exec, playerctl play-pause
+  bindl = , XF86AudioPrev, exec, playerctl previous
+
+  ##############################
+  ### WINDOWS AND WORKSPACES ###
+  ##############################
+
+  # See https://wiki.hyprland.org/Configuring/Window-Rules/ for more
+  # See https://wiki.hyprland.org/Configuring/Workspace-Rules/ for workspace rules
+
+  # Example windowrule
+  # windowrule = float,class:^(kitty)$,title:^(kitty)$
+
+  # Ignore maximize requests from apps. You'll probably like this.
+  # windowrule = suppressevent maximize, class:.*
+
+  # Fix some dragging issues with XWayland
+  windowrule = nofocus,class:^$,title:^$,xwayland:1,floating:1,fullscreen:0,pinned:0
+
+
+hypr-waybar-eww-kfw/.config/waybar/scripts/weather.fish
+
+  #!/usr/bin/env fish
+  set -l CITY "Tashkent_Uzbekistan"
+  set -l FORMAT "%c+%t"
+  curl -s "wttr.in/$CITY?format=$FORMAT"
+
+
+hypr-waybar-eww-kfw/.config/waybar/config.jsonc
+
+  {
+      "layer": "top",
+      "position": "top",
+      "height": 34,
+
+    // ---------- MODULES
+
+      "modules-left": [
+        "group/arch",
+        "group/hardware",
+        "hyprland/workspaces",
+        "custom/terminal",
+        "custom/browser",
+        "custom/nvim",
+        "custom/discord",
+        "custom/steam"
+      ],
+    "modules-center": [
+      "custom/media",
+      "hyprland/window"
+    ],
+      "modules-right": [
+        "pulseaudio",
+        "network",
+        "battery",
+        "tray",
+        "custom/weather",
+        "clock",
+        "custom/menu"
+      ],
+
+    // LEFT MODULES
+
+      "group/arch": {
+        "orientation": "horizontal",
+        "drawer": {
+          "transition-duration": 500,
+          "children-class": "not-power",
+          "transition-left-to-right": true
+        },
+        "modules": [
+          "image",
+          "custom/poweroff",
+          "custom/reboot",
+          "custom/logout"
+        ]
+      },
+
+    // FIRST GROUP
+
+      "image": {
+          "path": "/home/orcaex/.config/waybar/img/arch.png",
+          "size": 18,
+          "tooltip": false,
+          "on-click": "wofi --show drun",
+          "format": ""
+      },
+      "custom/poweroff": {
+        "format": "",
+        "tooltip": false,
+        "on-click": "shutdown now"
+        },
+      "custom/reboot": {
+        "format": "󰜉",
+        "tooltip": false,
+        "on-click": "reboot"
+      },
+      "custom/logout": {
+        "format": "󰗼",
+        "tooltip": false,
+        "on-click": "hyprctl dispatch exit"
+      },
+
+
+    // SECOND GROUP
+
+      "group/hardware": {
+        "orientation": "horizontal",
+        "drawer": {
+          "transition-duration": 500,
+          "children-class": "not-power",
+          "transition-left-to-right": true,
+          "click-to-reveal": true 	
+        },
+        "modules": [
+          "custom/hardware",
+          "cpu",
+          "memory",
+          "temperature"
+        ]
+      },
+
+      "custom/hardware": {
+        "format": "",
+        "tooltip": false
+      },
+      "cpu": { 
+          "interval": 4,
+          "format": "<span color='#ff2020'></span> {usage}%"
+      },
+      "memory": {
+          "interval": 4,
+          "format": "<span color='#94bf00'></span> {used:0.1f}G",
+          "tooltip": false
+      },
+      "temperature": {
+          "tooltip": false,
+          "format": "<span color='#e5c07b'></span> {temperatureC}°C",
+          "critical-threshold": 80,
+          "format-critical": "<span color='#ff505b'></span> {temperatureC}°C"
+      },
+
+
+      "custom/terminal": {
+        "format": "",
+        "tooltip": false,
+        "on-click": "kitty -e fish -c 'fastfetch; fish'"
+      },
+      "custom/browser": {
+        "format": "󰈹",
+        "tooltip": false,
+        "on-click": "firefox"
+      },
+      "custom/nvim": {
+        "format": "",
+        "tooltip": false,
+        "on-click": "kitty -e fish -c 'nvim'"
+      },
+      "custom/discord": {
+        "format": "",
+        "tooltip": false,
+        "on-click": "discord"
+      },
+      "custom/steam": {
+        "format": " ",
+        "tooltip": false,
+        "on-click": "steam"
+      },
+
+    // CENTER MODULE
+
+    "custom/media": {
+      "format": "{}",
+      "tooltip": false,
+      "max-length": 40, // character limit
+      "on-click": "playerctl play-pause", // play/pause toggle
+      "on-click-right": "playerctl next", // next track
+      "on-click-middle": "playerctl previous", // previous track
+      "smooth-scrolling": true, // smooth scrolling effect
+      "exec": "playerctl metadata --format '{{artist}} - {{title}}' -F"
+    }, 
+
+    // RIGHT MODULES
+
+      "pulseaudio": {
+          "scroll-step": 2, // %, can be a float
+          "format": "<span color='#a58Ff0'>{icon}</span>  {volume}%", //"{icon}  {volume}% {format_source}",
+          "format-bluetooth": " {icon} {volume}%",
+          "format-bluetooth-muted": "  {icon}",
+          "format-muted": "<span color='#b53F30'></span>",
+          "tooltip": false,
+          "format-source": "",
+          "format-source-muted": "",
+          "format-icons": {
+              "headphone": "",
+              "hands-free": "",
+              "headset": "",
+              "phone": "",
+              "portable": "",
+              "car": "",
+              "default": ["", "", ""]
+          },
+          "on-click": "pavucontrol",
+          "on-click-right": "kitty --class pw-top -e pw-top"
+      },
+      "network": {
+          "format-wifi": "{essid} ({signalStrength}%) <span color='#009940'></span>",
+          "format-ethernet": "<span color='#009940'></span>  {ifname}",
+          "interval": 3,
+          "tooltip-format": "{ipaddr}/{cidr} via {gwaddr}",
+          "format-linked": "<span color='#009940'></span>  {ifname} (No IP)",
+          "format-disconnected": "Disconnected ⚠ {ifname}",
+          "format-alt": "<span color='#009940'></span>  {ifname}: ⭡{bandwidthUpBytes} ⭣{bandwidthDownBytes}"
+      },
+      "tray": {
+          "icon-size": 15,
+          "spacing": 10
+      },
+      "clock": {
+          "timezone": "Asia/Tashkent",
+          "tooltip": false,
+          "format": "<span color='#e0d080'></span> {:%H:%M %d-%m}",
+          "format-alt": "<span color='#e0d080'></span> {:%A, %d %B %Y}"
+      },
+      "custom/menu": {
+          "format": " ",
+          "tooltip": false,
+          "on-click": "fish -c 'eww -c $HOME/.config/eww daemon >/dev/null 2>&1; or true; sleep 0.2; eww -c $HOME/.config/eww open --toggle services'"
+    },
+      
+    // Weather module: uses wttr.in via a small fish script
+    "custom/weather":{
+      "exec": "~/.config/waybar/scripts/weather.fish",
+      "interval": 1800,
+      "format": "{}"
+    },
+    
+    "hyprland/window": {
+      "tooltip": false,
+      "max-length": 40,
+      "format": "{title}"
+    }
+  }
+
+
+hypr-waybar-eww-kfw/.config/waybar/style.css
+
+  * {
+      border: none;   
+      font-family: "Hack Nerd Font","Font Awesome","Fira Code", sans-serif;
+      font-size: 12px;
+  }
+
+  window#waybar {
+    margin-top: 0px;
+    background: rgba(0, 0, 0,0);
+    color: #abb7bf;
+  }
+
+  /* ----- WORKSPACES ----- */
+
+  #workspaces {
+    padding: 0 5px;
+    background-color: rgba(0,0,0,0.8);
+    border-right: none;
+    margin-top: 10px;
+  }
+
+  #workspaces button {
+    padding: 0 2px;
+    background: transparent;
+    color: #abb2bf;
+    border: none;
+    box-shadow: inset 0 -3px transparent;
+    transition: all 0.25s ease;
+  }
+
+  #workspaces button:hover {
+    color: #ffffff;
+    text-shadow: none;
+    background: rgba(0,0,0,0.2);
+    border-radius: 0;
+  }
+
+  #workspaces button.active {
+    background-color: #d4d4d4;
+    color: #212121;
+    border-radius: 12px;
+    padding: 0 5px;
+  }
+
+  /* ----- Widgets ----- */
+    
+  #custom-menu {
+    border-top-right-radius: 12px;
+    border-bottom-right-radius: 12px;
+    margin-right: 10px;
+    color: #900;
+  }
+
+  #pulseaudio {
+    border-top-left-radius: 12px;
+    border-bottom-left-radius: 12px;
+  }
+
+  #image {
+    border-top-left-radius: 12px;
+    border-bottom-left-radius: 12px;
+    margin-left: 10px;
+  }
+
+  #custom-media {
+    border-radius: 12px;
+  }
+
+  #custom-steam {
+    border-top-right-radius: 12px;
+    border-bottom-right-radius: 12px;
+    font-size: 15px;
+  }
+
+  #custom-discord {
+    font-size: 13px;
+  }
+
+  #custom-reboot, #custom-browser {
+    font-size: 15px;
+  }
+
+  #clock, #image, #custom-reboot, #custom-poweroff, #custom-logout, #custom-hardware, #custom-terminal, #custom-browser, #custom-nvim, #custom-discord, #custom-steam, #battery, #network, #tray, #pulseaudio, #temperature, #cpu, #memory, #custom-media,#custom-menu {
+      padding: 0 10px;
+      background-color: rgba(0,0,0,0.8);
+      transition: all 0.3s ease;
+      margin-top: 10px;
+  }
+
+  #cpu:hover, #custom-poweroff:hover, #custom-reboot:hover, #custom-logout:hover,#custom-hardware:hover, #memory:hover,#custom-terminal:hover,#custom-browser:hover,#custom-nvim:hover, #custom-discord:hover,#custom-steam:hover, #clock:hover, #battery:hover, #network:hover, #tray:hover, #pulseaudio:hover, #temperature:hover, #custom-media:hover,#custom-menu {
+    color: #ffffff;
+  } 
+
+  /* #battery.charging {
+      color: #98c379;
+  }
+
+  #battery.warning:not(.charging) {
+      color: #e5c07b;
+  }
+
+  #battery.critical:not(.charging) {
+      color: #e06c75;
+  }*/
+
+
+hypr-waybar-eww-kfw/.local/bin/mediactl.fish
+
+  #!/usr/bin/env fish
+  # mediactl: control MPRIS with selection policy, or explicit player
+  # Usage: mediactl [play-pause|play|pause|next|previous] [playerName?]
+
+  set -l cmd "$argv[1]"
+  set -l explicit "$argv[2]"
+  test -n "$cmd"; or set cmd play-pause
+
+  set -l target ""
+  if test -n "$explicit"
+    set target $explicit
+  else
+    set target (~/.local/bin/select_player.fish)
+  end
+
+  set -l ok 1
+  if test -n "$target"
+    playerctl -p $target $cmd >/dev/null 2>&1; and set ok 0
+  else
+    playerctl -a $cmd >/dev/null 2>&1; and set ok 0
+  end
+
+  # remember last controlled if success
+  if test $ok -eq 0; and test -n "$target"
+    mkdir -p "$HOME/.cache/eww"
+    echo -n $target > "$HOME/.cache/eww/last-player"
+  end
+
+  # Be quiet on failure (YouTube outside playlist etc.)
+  exit 0
+
+
+hypr-waybar-eww-kfw/.local/bin/select_player.fish
+
+  #!/usr/bin/env fish
+  # Echo chosen MPRIS player using policy:
+  # If any Playing:
+  #   - focused if it's Playing
+  #   - otherwise prefer firefox -> spotify -> vlc -> mpv
+  # Else:
+  #   - last (if exists), then focused, then priority, then any.
+
+  set -l priority firefox spotify vlc mpv
+  set -l last_file "$HOME/.cache/eww/last-player"
+  set -l last ""
+  test -f "$last_file"; and set last (string trim < "$last_file")
+
+  set -l players (playerctl -l 2>/dev/null)
+  test -n "$players"; or exit 1
+
+  # who is playing
+  set -l playing
+  for p in $players
+    set -l st (playerctl -p $p status 2>/dev/null)
+    if test "$st" = "Playing"
+      set playing $playing $p
+    end
+  end
+
+  # focused class -> candidate
+  set -l focused_class (hyprctl activewindow -j 2>/dev/null | jq -r '.class // empty' 2>/dev/null)
+  set -l focused ""
+  if test -n "$focused_class"
+    set -l cls (string lower -- $focused_class)
+    switch $cls
+      case 'firefox*'; set focused firefox
+      case 'spotify*'; set focused spotify
+      case 'vlc*';     set focused vlc
+      case 'mpv*';     set focused mpv
+    end
+  end
+
+  function contains --argument-names needle
+    for x in $argv[2..-1]
+      if test "$needle" = "$x"
+        return 0
+      end
+    end
+    return 1
+  end
+
+  # If there is a playing set
+  if test -n "$playing"
+    if test -n "$focused"; and contains $focused $playing
+      echo $focused; exit 0
+    end
+    for want in $priority
+      if contains $want $playing
+        echo $want; exit 0
+      end
+    end
+    echo $playing[1]; exit 0
+  end
+
+  # No playing
+  if test -n "$last"; and contains $last $players
+    echo $last; exit 0
+  end
+  if test -n "$focused"; and contains $focused $players
+    echo $focused; exit 0
+  end
+  for want in $priority
+    if contains $want $players
+      echo $want; exit 0
+    end
+  end
+
+  echo $players[1]; exit 0
+
+
+hypr-waybar-eww-kfw/.local/bin/wall
+
+  #!/usr/bin/env fish
+  # wall: set wallpaper by index with flexible extension and optional transitions.
+  # Usage:
+  #   wall <1..8 | 001..008> [swww-options...]
+  # Defaults:
+  #   - DIR = ~/Pictures/wallpapers/quick (override via $WALL_DIR).
+  #   - If no transition flags are provided, adds:
+  #       --transition-type grow
+  #       --transition-pos <random corner: top-left | top-right | bottom-left | bottom-right>
+  # Notes:
+  #   - --transition-pos accepts aliases: center, top, left, right, bottom, top-left, top-right, bottom-left, bottom-right.
+  #   - Supported extensions (case-insensitive): jpg, jpeg, png, webp, avif, bmp.
+
+  # Require at least one argument (the index)
+  if test (count $argv) -lt 1
+    echo "Usage: wall <1..8 | 001..008> [swww-options...]"
+    exit 1
+  end
+
+  # Target directory
+  if set -q WALL_DIR
+    set dir "$WALL_DIR"
+  else
+    set dir "$HOME/Pictures/wallpapers/quick"
+  end
+
+  # Parse and validate index
+  set raw $argv[1]
+  set -e argv[1]  # shift; remaining args go to swww img
+
+  # Numeric check
+  if not string match -rq '^[0-9]+$' -- $raw
+    echo "Error: index must be a number in range 1..8 (e.g., 1 or 001)."
+    exit 1
+  end
+
+  # Range enforce 1..8
+  set n (math "$raw + 0")
+  if test $n -lt 1 -o $n -gt 8
+    echo "Error: index out of range. Only 1..8 are allowed."
+    exit 1
+  end
+
+  # Zero-pad to 3 digits (1 -> 001)
+  set num (printf "%03d" $n)
+
+  # Resolve file by extension (case-insensitive)
+  set exts jpg JPG jpeg JPEG png PNG webp WEBP avif AVIF bmp BMP
+  set file ""
+  for ext in $exts
+    set candidate "$dir/$num.$ext"
+    if test -f "$candidate"
+      set file "$candidate"
+      break
+    end
+  end
+
+  # Fallback: any suffix for rare extensions
+  if test -z "$file"
+    for candidate in $dir/$num.*
+      if test -f "$candidate"
+        set file "$candidate"
+        break
+      end
+    end
+  end
+
+  if test -z "$file"
+    echo "No wallpaper found for $num in $dir"
+    exit 1
+  end
+
+  # Ensure swww-daemon is running
+  if not pgrep -x swww-daemon >/dev/null 2>&1
+    swww-daemon >/dev/null 2>&1 &
+    sleep 0.2
+  end
+
+  # Detect if user provided transition flags
+  set has_type 0
+  set has_pos 0
+  for a in $argv
+    if string match -q -- '--transition-type*' $a
+      set has_type 1
+    end
+    if string match -q -- '--transition-pos*' $a
+      set has_pos 1
+    end
+  end
+
+  # Defaults if not supplied:
+  set default_args
+  if test $has_type -eq 0
+    set -a default_args --transition-type grow
+  end
+  if test $has_pos -eq 0
+    # Random among corner aliases (avoids coordinate confusion)
+    set corners top-left top-right bottom-left bottom-right
+    set pos (random choice $corners)
+    set -a default_args --transition-pos $pos
+  end
+
+  # Execute swww
+  exec swww img "$file" $default_args $argv
+
+
+hypr-waybar-eww-kfw/.local/bin/wall_path
+
+  #!/usr/bin/env fish
+  # Print full path of wallpaper by index (1..8 / 001..008), matching any supported extension.
+  # Uses the same directory and extensions as the `wall` script.
+
+  if test (count $argv) -lt 1
+    echo "Usage: wall_path <1..8 | 001..008>"
+    exit 1
+  end
+
+  if set -q WALL_DIR
+    set dir "$WALL_DIR"
+  else
+    set dir "$HOME/Pictures/wallpapers/quick"
+  end
+
+  set raw $argv[1]
+  if not string match -rq '^[0-9]+$' -- $raw
+    echo "Error: index must be numeric (1..8 or 001..008)" >&2
+    exit 1
+  end
+  set n (math "$raw + 0")
+  if test $n -lt 1 -o $n -gt 8
+    echo "Error: index out of range (1..8)" >&2
+    exit 1
+  end
+  set num (printf "%03d" $n)
+
+  set exts jpg JPG jpeg JPEG png PNG webp WEBP avif AVIF bmp BMP
+  for ext in $exts
+    set candidate "$dir/$num.$ext"
+    if test -f "$candidate"
+      echo "$candidate"
+      exit 0
+    end
+  end
+
+  for candidate in $dir/$num.*
+    if test -f "$candidate"
+      echo "$candidate"
+      exit 0
+    end
+  end
+
+  echo "Error: not found: $dir/$num.(jpg|jpeg|png|webp|avif|bmp)" >&2
+  exit 1
+

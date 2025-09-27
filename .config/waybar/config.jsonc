@@ -13,11 +13,11 @@
       "custom/browser",
       "custom/nvim",
       "custom/discord",
-      "custom/steam"
+      "custom/steam",
+      "hyprland/window"
     ],
   "modules-center": [
-    "custom/media",
-    "hyprland/window"
+    "custom/media"
   ],
     "modules-right": [
       "pulseaudio",
